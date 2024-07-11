@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Zoom and Move with Circles</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+            cursor: grab;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="imageLoader" name="imageLoader"/>
+    <br>
+    <div class="controls">
+        <label><input type="checkbox" id="circle59"> Círculo de 59mm</label>
+        <label><input type="checkbox" id="circle68"> Círculo de 68mm</label>
+        <button id="saveImage">Guardar Imagen</button>
+    </div>
+    <canvas id="canvas" width="850" height="850"></canvas>
+    <script src="script.js"></script>
+</body>
+</html>
