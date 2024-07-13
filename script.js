@@ -75,17 +75,17 @@ function drawCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, imgX, imgY, img.width * imgScale, img.height * imgScale);
     if (circle59Checkbox.checked) {
-        drawCircle(canvas.width / 2, canvas.height / 2, circle59mmRadius);
+        drawCircle(canvas.width / 2, canvas.height / 2, circle59mmRadius, 'red');
     }
     if (circle68Checkbox.checked) {
-        drawCircle(canvas.width / 2, canvas.height / 2, circle68mmRadius);
+        drawCircle(canvas.width / 2, canvas.height / 2, circle68mmRadius, 'black');
     }
 }
 
-function drawCircle(x, y, radius) {
+function drawCircle(x, y, radius, color) {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, 2 * Math.PI);
-    ctx.strokeStyle = 'red';
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.stroke();
 }
