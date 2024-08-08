@@ -2,7 +2,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const imageLoader = document.getElementById('imageLoader');
 const circle59Checkbox = document.getElementById('circle59');
-const circle68Checkbox = document.getElementById('circle68');
+const circle72Checkbox = document.getElementById('circle72');
 const saveImageButton = document.getElementById('saveImage');
 
 let img = new Image();
@@ -14,7 +14,7 @@ let dragStartX, dragStartY;
 
 const DPI = 300;
 const circle59mmRadius = (59 / 25.4) * DPI / 2;
-const circle68mmRadius = (68 / 25.4) * DPI / 2;
+const circle72mmRadius = (72 / 25.4) * DPI / 2;
 
 imageLoader.addEventListener('change', handleImage, false);
 canvas.addEventListener('mousedown', startDragging, false);
@@ -22,7 +22,7 @@ canvas.addEventListener('mousemove', dragImage, false);
 canvas.addEventListener('mouseup', stopDragging, false);
 canvas.addEventListener('wheel', zoomImage, false);
 circle59Checkbox.addEventListener('change', drawCanvas);
-circle68Checkbox.addEventListener('change', drawCanvas);
+circle72Checkbox.addEventListener('change', drawCanvas);
 saveImageButton.addEventListener('click', saveCanvasAsImage);
 
 function handleImage(e) {
@@ -77,8 +77,8 @@ function drawCanvas() {
     if (circle59Checkbox.checked) {
         drawCircle(canvas.width / 2, canvas.height / 2, circle59mmRadius, 'red');
     }
-    if (circle68Checkbox.checked) {
-        drawCircle(canvas.width / 2, canvas.height / 2, circle68mmRadius, 'black');
+    if (circle72Checkbox.checked) {
+        drawCircle(canvas.width / 2, canvas.height / 2, circle72mmRadius, 'black');
     }
 }
 
@@ -86,7 +86,7 @@ function drawCircle(x, y, radius, color) {
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, 2 * Math.PI);
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 5;
     ctx.stroke();
 }
 
