@@ -1,7 +1,7 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const imageLoader = document.getElementById('imageLoader');
-const circle60Checkbox = document.getElementById('circle60');
+const circle61Checkbox = document.getElementById('circle61');
 const circle72Checkbox = document.getElementById('circle72');
 const saveImageButton = document.getElementById('saveImage');
 
@@ -13,7 +13,7 @@ let isDragging = false;
 let dragStartX, dragStartY;
 
 const DPI = 300;
-const circle60mmRadius = (60 / 25.4) * DPI / 2;
+const circle61mmRadius = (61 / 25.4) * DPI / 2;
 const circle72mmRadius = (72 / 25.4) * DPI / 2;
 
 imageLoader.addEventListener('change', handleImage, false);
@@ -21,7 +21,7 @@ canvas.addEventListener('mousedown', startDragging, false);
 canvas.addEventListener('mousemove', dragImage, false);
 canvas.addEventListener('mouseup', stopDragging, false);
 canvas.addEventListener('wheel', zoomImage, false);
-circle60Checkbox.addEventListener('change', drawCanvas);
+circle61Checkbox.addEventListener('change', drawCanvas);
 circle72Checkbox.addEventListener('change', drawCanvas);
 saveImageButton.addEventListener('click', saveCanvasAsImage);
 
@@ -74,8 +74,8 @@ function zoomImage(e) {
 function drawCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, imgX, imgY, img.width * imgScale, img.height * imgScale);
-    if (circle60Checkbox.checked) {
-        drawCircle(canvas.width / 2, canvas.height / 2, circle60mmRadius, 'red');
+    if (circle61Checkbox.checked) {
+        drawCircle(canvas.width / 2, canvas.height / 2, circle61mmRadius, 'red');
     }
     if (circle72Checkbox.checked) {
         drawCircle(canvas.width / 2, canvas.height / 2, circle72mmRadius, 'black');
