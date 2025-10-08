@@ -1,28 +1,523 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Zoom and Move with Circles</title>
+    <title>Editor de Imágenes con Círculos</title>
     <style>
-        canvas {
-            border: 1px solid black;
-            cursor: grab;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-width: 100%;
+            margin: 0 auto;
+            background: white;
+        }
+
+        h1 {
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            font-size: 24px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .file-input-wrapper {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            display: none;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .file-input-label:hover {
+            background: #0056b3;
+        }
+
         .controls {
-            margin: 10px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            padding: 15px 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .zoom-controls {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+
+        .zoom-controls button {
+            padding: 5px 12px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        .zoom-controls button:hover {
+            background: #545b62;
+        }
+
+        .zoom-controls button:active {
+            transform: scale(0.95);
+        }
+
+        .zoom-level {
+            min-width: 60px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        button.primary {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        button.primary:hover {
+            background: #218838;
+        }
+
+        button.secondary {
+            padding: 10px 20px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button.secondary:hover {
+            background: #545b62;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #e9ecef;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        canvas {
+            display: block;
+            cursor: grab;
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+
+        canvas.grabbing {
+            cursor: grabbing;
+        }
+
+        .info {
+            padding: 10px 20px;
+            background: #e7f3ff;
+            border-top: 1px solid #b8daff;
+            font-size: 13px;
+            color: #004085;
+        }
+
+        .no-image {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #6c757d;
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
-    <input type="file" id="imageLoader" name="imageLoader"/>
-    <br>
-    <div class="controls">
-        <label><input type="checkbox" id="circle61"> Círculo de 61mm</label>
-        <label><input type="checkbox" id="circle72"> Círculo de 72mm</label>
-        <button id="saveImage">Guardar Imagen</button>
+    <div class="container">
+        <h1>Editor de Imágenes con Círculos</h1>
+
+        <div class="file-input-wrapper">
+            <label for="imageLoader" class="file-input-label">
+                📁 Seleccionar Imagen
+            </label>
+            <input type="file" id="imageLoader" accept="image/*"/>
+            <span id="fileName" style="margin-left: 10px; color: #6c757d;"></span>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="circle61">
+                    Círculo 61mm (rojo)
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="circle72">
+                    Círculo 72mm (negro)
+                </label>
+            </div>
+
+            <div class="zoom-controls">
+                <button id="zoomOut" title="Reducir zoom">−</button>
+                <span class="zoom-level" id="zoomLevel">100%</span>
+                <button id="zoomIn" title="Aumentar zoom">+</button>
+                <button id="resetZoom" class="secondary" title="Restablecer vista">⟲</button>
+            </div>
+
+            <button id="saveImage" class="primary">💾 Guardar Imagen</button>
+        </div>
+
+        <div class="canvas-wrapper">
+            <canvas id="canvas" width="860" height="860"></canvas>
+        </div>
+
+        <div class="info">
+            💡 <strong>Controles:</strong> Arrastra para mover | Rueda del ratón para zoom | Los círculos se dibujan a 300 DPI
+        </div>
+
+        <div id="noImage" class="no-image">
+            Carga una imagen para comenzar
+        </div>
     </div>
-    <canvas id="canvas" width="860" height="860"></canvas>
-    <script src="script.js"></script>
+
+    <script>
+        class ImageEditor {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.imageLoader = document.getElementById('imageLoader');
+                this.circle61Checkbox = document.getElementById('circle61');
+                this.circle72Checkbox = document.getElementById('circle72');
+                this.saveImageButton = document.getElementById('saveImage');
+                this.zoomInBtn = document.getElementById('zoomIn');
+                this.zoomOutBtn = document.getElementById('zoomOut');
+                this.resetZoomBtn = document.getElementById('resetZoom');
+                this.zoomLevelDisplay = document.getElementById('zoomLevel');
+                this.fileNameDisplay = document.getElementById('fileName');
+                this.noImageDiv = document.getElementById('noImage');
+
+                this.img = null;
+                this.imgScale = 1;
+                this.imgX = 0;
+                this.imgY = 0;
+                this.isDragging = false;
+                this.dragStartX = 0;
+                this.dragStartY = 0;
+                this.lastMouseX = 0;
+                this.lastMouseY = 0;
+
+                this.DPI = 300;
+                this.circle61mmRadius = (61 / 25.4) * this.DPI / 2;
+                this.circle72mmRadius = (72 / 25.4) * this.DPI / 2;
+                this.zoomFactor = 1.1;
+
+                this.initEventListeners();
+                this.updateZoomDisplay();
+                this.hideCanvas();
+            }
+
+            initEventListeners() {
+                this.imageLoader.addEventListener('change', (e) => this.handleImage(e));
+                this.canvas.addEventListener('mousedown', (e) => this.startDragging(e));
+                this.canvas.addEventListener('mousemove', (e) => this.dragImage(e));
+                this.canvas.addEventListener('mouseup', () => this.stopDragging());
+                this.canvas.addEventListener('mouseleave', () => this.stopDragging());
+                this.canvas.addEventListener('wheel', (e) => this.zoomImage(e));
+                this.circle61Checkbox.addEventListener('change', () => this.drawCanvas());
+                this.circle72Checkbox.addEventListener('change', () => this.drawCanvas());
+                this.saveImageButton.addEventListener('click', () => this.saveCanvasAsImage());
+                this.zoomInBtn.addEventListener('click', () => this.zoomByButton(1));
+                this.zoomOutBtn.addEventListener('click', () => this.zoomByButton(-1));
+                this.resetZoomBtn.addEventListener('click', () => this.resetView());
+
+                // Ajustar canvas al redimensionar ventana
+                window.addEventListener('resize', () => {
+                    if (this.img) {
+                        this.adjustCanvasSize();
+                        this.drawCanvas();
+                    }
+                });
+            }
+
+            hideCanvas() {
+                this.canvas.style.display = 'none';
+                this.noImageDiv.style.display = 'block';
+            }
+
+            showCanvas() {
+                this.canvas.style.display = 'block';
+                this.noImageDiv.style.display = 'none';
+            }
+
+            handleImage(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                this.fileNameDisplay.textContent = file.name;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    this.img = new Image();
+                    this.img.onload = () => {
+                        this.adjustCanvasSize();
+                        this.resetView();
+                        this.showCanvas();
+                    };
+                    this.img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            adjustCanvasSize() {
+                // Obtener el tamaño disponible del contenedor
+                const wrapper = this.canvas.parentElement;
+                const maxWidth = wrapper.clientWidth;
+                const maxHeight = wrapper.clientHeight;
+
+                // Mantener el canvas a 860x860 pero ajustar si es necesario
+                const size = Math.min(860, maxWidth, maxHeight);
+
+                // Calcular factor de escala del canvas
+                const scaleFactor = size / 860;
+
+                this.canvas.width = size;
+                this.canvas.height = size;
+
+                // Ajustar tamaño de los círculos proporcionalmente
+                this.circle61mmRadius = ((61 / 25.4) * this.DPI / 2) * scaleFactor;
+                this.circle72mmRadius = ((72 / 25.4) * this.DPI / 2) * scaleFactor;
+            }
+
+            resetView() {
+                if (!this.img) return;
+
+                // Calcular escala para que la imagen entre completa en el canvas
+                const scaleX = this.canvas.width / this.img.width;
+                const scaleY = this.canvas.height / this.img.height;
+                this.imgScale = Math.min(scaleX, scaleY, 1); // No hacer zoom in si ya cabe
+
+                // Centrar la imagen
+                const scaledWidth = this.img.width * this.imgScale;
+                const scaledHeight = this.img.height * this.imgScale;
+                this.imgX = (this.canvas.width - scaledWidth) / 2;
+                this.imgY = (this.canvas.height - scaledHeight) / 2;
+
+                this.updateZoomDisplay();
+                this.drawCanvas();
+            }
+
+            getCanvasCoordinates(clientX, clientY) {
+                const rect = this.canvas.getBoundingClientRect();
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+
+            startDragging(e) {
+                if (!this.img) return;
+
+                const coords = this.getCanvasCoordinates(e.clientX, e.clientY);
+                this.isDragging = true;
+                this.dragStartX = coords.x - this.imgX;
+                this.dragStartY = coords.y - this.imgY;
+                this.canvas.classList.add('grabbing');
+            }
+
+            dragImage(e) {
+                if (!this.isDragging || !this.img) return;
+
+                const coords = this.getCanvasCoordinates(e.clientX, e.clientY);
+                this.imgX = coords.x - this.dragStartX;
+                this.imgY = coords.y - this.dragStartY;
+                this.lastMouseX = coords.x;
+                this.lastMouseY = coords.y;
+                this.drawCanvas();
+            }
+
+            stopDragging() {
+                this.isDragging = false;
+                this.canvas.classList.remove('grabbing');
+            }
+
+            zoomImage(e) {
+                if (!this.img) return;
+
+                e.preventDefault();
+
+                const coords = this.getCanvasCoordinates(e.clientX, e.clientY);
+                const mouseX = coords.x;
+                const mouseY = coords.y;
+
+                // Calcular posición relativa del mouse respecto a la imagen
+                const mouseXRelToImg = (mouseX - this.imgX) / this.imgScale;
+                const mouseYRelToImg = (mouseY - this.imgY) / this.imgScale;
+
+                // Aplicar zoom
+                const oldScale = this.imgScale;
+                if (e.deltaY < 0) {
+                    this.imgScale *= this.zoomFactor;
+                } else {
+                    this.imgScale /= this.zoomFactor;
+                }
+                this.imgScale = Math.max(0.1, Math.min(this.imgScale, 10));
+
+                // Ajustar posición para mantener el punto bajo el cursor fijo
+                this.imgX = mouseX - mouseXRelToImg * this.imgScale;
+                this.imgY = mouseY - mouseYRelToImg * this.imgScale;
+
+                this.updateZoomDisplay();
+                this.drawCanvas();
+            }
+
+            zoomByButton(direction) {
+                if (!this.img) return;
+
+                // Zoom hacia el centro del canvas
+                const centerX = this.canvas.width / 2;
+                const centerY = this.canvas.height / 2;
+
+                const mouseXRelToImg = (centerX - this.imgX) / this.imgScale;
+                const mouseYRelToImg = (centerY - this.imgY) / this.imgScale;
+
+                if (direction > 0) {
+                    this.imgScale *= this.zoomFactor;
+                } else {
+                    this.imgScale /= this.zoomFactor;
+                }
+                this.imgScale = Math.max(0.1, Math.min(this.imgScale, 10));
+
+                this.imgX = centerX - mouseXRelToImg * this.imgScale;
+                this.imgY = centerY - mouseYRelToImg * this.imgScale;
+
+                this.updateZoomDisplay();
+                this.drawCanvas();
+            }
+
+            updateZoomDisplay() {
+                const percentage = Math.round(this.imgScale * 100);
+                this.zoomLevelDisplay.textContent = `${percentage}%`;
+            }
+
+            drawCanvas() {
+                if (!this.img) return;
+
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // Dibujar imagen
+                this.ctx.drawImage(
+                    this.img,
+                    this.imgX,
+                    this.imgY,
+                    this.img.width * this.imgScale,
+                    this.img.height * this.imgScale
+                );
+
+                // Dibujar círculos
+                if (this.circle61Checkbox.checked) {
+                    this.drawCircle(
+                        this.canvas.width / 2,
+                        this.canvas.height / 2,
+                        this.circle61mmRadius,
+                        'rgba(255, 0, 0, 0.8)',
+                        3
+                    );
+                }
+
+                if (this.circle72Checkbox.checked) {
+                    this.drawCircle(
+                        this.canvas.width / 2,
+                        this.canvas.height / 2,
+                        this.circle72mmRadius,
+                        'rgba(0, 0, 0, 0.8)',
+                        3
+                    );
+                }
+            }
+
+            drawCircle(x, y, radius, color, lineWidth) {
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
+                this.ctx.strokeStyle = color;
+                this.ctx.lineWidth = lineWidth;
+                this.ctx.stroke();
+            }
+
+            saveCanvasAsImage() {
+                if (!this.img) {
+                    alert('Por favor, carga una imagen primero.');
+                    return;
+                }
+
+                const filename = prompt('Nombre del archivo (sin extensión):', 'imagen_editada');
+                if (!filename) return;
+
+                const link = document.createElement('a');
+                link.download = `${filename}.png`;
+                link.href = this.canvas.toDataURL('image/png');
+                link.click();
+            }
+        }
+
+        // Inicializar el editor
+        const editor = new ImageEditor();
+    </script>
 </body>
 </html>
