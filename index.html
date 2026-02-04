@@ -326,23 +326,16 @@
             }
 
             adjustCanvasSize() {
-                // Obtener el tamaño disponible del contenedor
-                const wrapper = this.canvas.parentElement;
-                const maxWidth = wrapper.clientWidth;
-                const maxHeight = wrapper.clientHeight;
+                // SIEMPRE fijamos la resolución interna para que coincida con 300 DPI (aprox 72mm)
+                // 72mm / 25.4 * 300 = 850.39 píxeles
+                this.canvas.width = 850;
+                this.canvas.height = 850;
 
-                // Mantener el canvas a 860x860 pero ajustar si es necesario
-                const size = Math.min(860, maxWidth, maxHeight);
+                // Recalcular radios basándonos en este tamaño fijo y 300 DPI
+                this.circle61mmRadius = (61 / 25.4) * this.DPI / 2;
+                this.circle72mmRadius = (72 / 25.4) * this.DPI / 2;
 
-                // Calcular factor de escala del canvas
-                const scaleFactor = size / 860;
-
-                this.canvas.width = size;
-                this.canvas.height = size;
-
-                // Ajustar tamaño de los círculos proporcionalmente
-                this.circle61mmRadius = ((61 / 25.4) * this.DPI / 2) * scaleFactor;
-                this.circle72mmRadius = ((72 / 25.4) * this.DPI / 2) * scaleFactor;
+                // Nota: El CSS se encargará de que este canvas gigante quepa en la pantalla
             }
 
             resetView() {
@@ -365,9 +358,14 @@
 
             getCanvasCoordinates(clientX, clientY) {
                 const rect = this.canvas.getBoundingClientRect();
+
+                // Calculamos la proporción entre el tamaño real (850) y el tamaño en pantalla
+                const scaleX = this.canvas.width / rect.width;
+                const scaleY = this.canvas.height / rect.height;
+
                 return {
-                    x: clientX - rect.left,
-                    y: clientY - rect.top
+                    x: (clientX - rect.left) * scaleX,
+                    y: (clientY - rect.top) * scaleY
                 };
             }
 
