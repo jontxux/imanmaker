@@ -43,7 +43,7 @@ ANCHO_IMAGEN=850
 ALTO_IMAGEN=850
 
 # Crear una lista de comandos composite
-COMANDO_COMPOSITE="convert -size ${ANCHO_LIENZO}x${ALTO_LIENZO} xc:white -density 300 -units PixelsPerInch"
+COMANDO_COMPOSITE="magick -size ${ANCHO_LIENZO}x${ALTO_LIENZO} xc:white -density 300 -units PixelsPerInch"
 
 # Posiciones iniciales
 X=$MARGEN_IZQUIERDO
