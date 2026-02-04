@@ -1,76 +1,82 @@
-#!/bin/sh
+#!/usr/bin/env bash
+# Usamos /bin/bash en lugar de /bin/sh para poder usar arrays
 
-# Función para mostrar el uso del script
 mostrar_uso() {
     echo "Uso: $0 [-o archivo_salida] imagen1 [imagen2 ... imagen6]"
     exit 1
 }
 
-# Nombre predeterminado del archivo de salida
 ARCHIVO_SALIDA="salida_final_imanes.pdf"
+IMAGENES=() # Array para guardar las imágenes
 
 # Procesar opciones
 while [ "$1" != "" ]; do
     case $1 in
-        -o )
-            shift
-            ARCHIVO_SALIDA=$1
-            ;;
-        -* )
-            mostrar_uso
-            ;;
-        * )
-            # Agregar archivo de imagen a la lista
-            IMAGENES="$IMAGENES $1"
-            ;;
+        -o ) shift; ARCHIVO_SALIDA=$1 ;;
+        -* ) mostrar_uso ;;
+        * ) IMAGENES+=("$1") ;; # Añadir al array
     esac
     shift
 done
 
-# Comprueba si se han proporcionado suficientes argumentos
-if [ "$IMAGENES" = "" ]; then
+if [ ${#IMAGENES[@]} -eq 0 ]; then
     mostrar_uso
 fi
 
-# Parámetros para las posiciones y espaciado
+if [ ${#IMAGENES[@]} -gt 6 ]; then
+    echo "⚠️  ADVERTENCIA: Has pasado ${#IMAGENES[@]} imágenes. Solo caben 6 en un A4. Las sobrantes se ignorarán."
+fi
+
+# Configuración
 MARGEN_IZQUIERDO=315
 MARGEN_SUPERIOR=379
 ESPACIO_ENTRE_COLUMNAS=950
 ESPACIO_ENTRE_FILAS=950
 ANCHO_LIENZO=2480
 ALTO_LIENZO=3508
-ANCHO_IMAGEN=850
-ALTO_IMAGEN=850
+# Definimos el tamaño objetivo para asegurar que encajen
+ANCHO_OBJETIVO=850
+ALTO_OBJETIVO=850
 
-# Crear una lista de comandos composite
-COMANDO_COMPOSITE="magick -size ${ANCHO_LIENZO}x${ALTO_LIENZO} xc:white -density 300 -units PixelsPerInch"
+# Construimos el comando usando un ARRAY para evitar 'eval'
+CMD_ARGS=(
+    -size "${ANCHO_LIENZO}x${ALTO_LIENZO}" 
+    xc:white 
+    -density 300 
+    -units PixelsPerInch
+)
 
-# Posiciones iniciales
 X=$MARGEN_IZQUIERDO
 Y=$MARGEN_SUPERIOR
-COLUMNA=0
-FILA=0
+COUNT=0
 
-# Procesar cada archivo de imagen proporcionado
-for ARCHIVO_IMAGEN in $IMAGENES; do
-    COMANDO_COMPOSITE="$COMANDO_COMPOSITE \\( \"$ARCHIVO_IMAGEN\" -geometry +${X}+${Y} \\) -composite"
+for ARCHIVO_IMAGEN in "${IMAGENES[@]}"; do
+    # Parar si llegamos a 6
+    if [ $COUNT -ge 6 ]; then break; fi
 
-    # Mover a la siguiente columna o fila
-    if [ $COLUMNA -eq 0 ]; then
-        COLUMNA=1
-        X=$(($MARGEN_IZQUIERDO + $ESPACIO_ENTRE_COLUMNAS))
-    else
-        COLUMNA=0
+    # Añadimos la operación de composición al array de argumentos
+    # Agregamos -resize para seguridad: fuerza a que la imagen sea del tamaño esperado
+    CMD_ARGS+=( 
+        \( "$ARCHIVO_IMAGEN" -resize "${ANCHO_OBJETIVO}x${ALTO_OBJETIVO}" -geometry "+${X}+${Y}" \) 
+        -composite 
+    )
+
+    # Calcular siguiente posición
+    COUNT=$((COUNT + 1))
+    if [ $((COUNT % 2)) -eq 0 ]; then
+        # Cambio de fila (es par, pasamos a la siguiente fila, columna 0)
         X=$MARGEN_IZQUIERDO
-        FILA=$(($FILA + 1))
-        Y=$(($MARGEN_SUPERIOR + $FILA * $ESPACIO_ENTRE_FILAS))
+        # FILA aumenta cada 2 imágenes
+        FILA=$((COUNT / 2))
+        Y=$((MARGEN_SUPERIOR + FILA * ESPACIO_ENTRE_FILAS))
+    else
+        # Siguiente columna
+        X=$((MARGEN_IZQUIERDO + ESPACIO_ENTRE_COLUMNAS))
     fi
 done
 
-# Añadir el nombre del archivo de salida
-COMANDO_COMPOSITE="$COMANDO_COMPOSITE $ARCHIVO_SALIDA"
+# Ejecutar magick con el array de argumentos expandido
+echo "Generando PDF con $COUNT imágenes..."
+magick "${CMD_ARGS[@]}" "$ARCHIVO_SALIDA"
 
-# Ejecutar el comando
-eval $COMANDO_COMPOSITE
-
-echo "PDF generado como $ARCHIVO_SALIDA"
+echo "✅ PDF generado correctamente: $ARCHIVO_SALIDA"
