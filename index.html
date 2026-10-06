@@ -25,8 +25,8 @@
         }
 
         h1 {
-            padding: 16px 20px;
-            font-size: 22px;
+            padding: 10px 20px;
+            font-size: 20px;
             border-bottom: 1px solid #e9ecef;
         }
 
@@ -103,7 +103,7 @@
             padding: 12px 20px;
             overflow-x: auto;
             border-bottom: 1px solid #e9ecef;
-            min-height: 96px;
+            min-height: 92px;
             align-items: center;
         }
 
@@ -163,7 +163,8 @@
         #lienzo {
             display: block;
             width: 100%;
-            max-width: 620px;
+            /* Que quepa con sus botones en la ventana, sin tener que bajar. */
+            max-width: min(620px, max(260px, calc(100vh - 425px)));
             aspect-ratio: 1;
             margin: 0 auto;
             border: 1px solid #dee2e6;
@@ -254,7 +255,7 @@
                 <canvas id="lienzo" width="900" height="900"></canvas>
                 <div class="leyenda">
                     Arrastra para mover · rueda o pellizco para el tamaño ·
-                    lo claro es lo que se ve (61 mm), lo oscuro se dobla por detrás (hasta 72 mm)
+                    lo claro es lo que se ve (61 mm), lo oscuro se dobla por detrás (hasta el corte)
                 </div>
                 <div id="aviso"></div>
                 <div class="controles">
@@ -275,7 +276,14 @@
             <div class="lado">
                 <h2>Hoja para imprimir (A4)</h2>
                 <div class="opciones">
-                    <label><input type="checkbox" id="lineaCorte" checked> Línea de corte (72 mm)</label>
+                    <label>Diámetro de corte
+                        <select id="diametro">
+                            <option value="67">67 mm</option>
+                            <option value="70">70 mm</option>
+                            <option value="72" selected>72 mm</option>
+                        </select>
+                    </label>
+                    <label><input type="checkbox" id="lineaCorte" checked> Línea de corte</label>
                     <label><input type="checkbox" id="lineaVisible"> Marcar lo que se ve (61 mm)</label>
                     <label><input type="checkbox" id="regla" checked> Regla de 50 mm para comprobar el tamaño</label>
                 </div>
@@ -289,11 +297,12 @@
     </div>
 
     <script>
-        // Todo va en píxeles a 300 ppp: un imán son 72 mm (850 px) y se ven 61 mm.
+        // Todo va en píxeles a 300 ppp: se ven 61 mm y se corta a 67, 70 o 72 mm.
         const PPP = 300;
         const mm = (v) => v / 25.4 * PPP;
         const R_VISIBLE = mm(61) / 2;
-        const R_CORTE = mm(72) / 2;
+        // El diámetro de corte se elige en la página (según la máquina o el troquel).
+        let R_CORTE = mm(72) / 2;
 
         // La hoja: un A4 con seis imanes (2 × 3), centrados.
         const HOJA = { ancho: 2480, alto: 3508, margenX: 340, margenY: 379, paso: 950, caja: 850, porHoja: 6 };
@@ -419,6 +428,17 @@
                 el('quitar').addEventListener('click', () => this.quitar());
                 el('png').addEventListener('click', () => this.guardarPng());
                 el('pdf').addEventListener('click', () => this.guardarPdf());
+                const diametro = el('diametro');
+                try {
+                    const guardado = localStorage.getItem('diametro');
+                    if ([...diametro.options].some((o) => o.value === guardado)) diametro.value = guardado;
+                } catch { /* sin almacenamiento, se queda el de por defecto */ }
+                R_CORTE = mm(Number(diametro.value)) / 2;
+                diametro.addEventListener('change', () => {
+                    R_CORTE = mm(Number(diametro.value)) / 2;
+                    try { localStorage.setItem('diametro', diametro.value); } catch { /* da igual */ }
+                    this.cambio();
+                });
                 for (const id of ['lineaCorte', 'lineaVisible', 'regla']) {
                     el(id).addEventListener('change', () => this.pintarHojas());
                 }
