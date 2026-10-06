@@ -268,6 +268,9 @@
                 <div class="controles">
                     <label>Copias <input type="number" id="copias" min="1" max="60" value="1"></label>
                     <label>Fondo <input type="color" id="fondo" value="#ffffff"></label>
+                    <label title="Continúa la foto por fuera de sus bordes, desenfocada">
+                        <input type="checkbox" id="desenfocado"> Fondo desenfocado
+                    </label>
                     <button id="png" title="Guardar solo este imán, recortado en círculo">PNG de este imán</button>
                     <button id="quitar" class="peligro">Quitar</button>
                 </div>
@@ -316,7 +319,59 @@
                 this.rot = 0;
                 this.copias = 1;
                 this.fondo = '#ffffff';
+                this.desenfocado = false;
+                this.borrosa = null;
                 this.rellenar();
+            }
+
+            // Lo que hace falta para el fondo desenfocado. Se prepara una vez, en pequeño:
+            // - espejo: la foto rodeada de sus reflejos (3 × 3) y desenfocada, para que
+            //   lo que sigue a cada borde tenga los colores de ese borde;
+            // - bordes: una franja estrecha y desenfocada por cada lado de la foto (arriba,
+            //   derecha, abajo, izquierda), que se pinta encima para que no se note dónde
+            //   acaba la foto nítida. Estrecha, para no emborronar una cara pegada al borde.
+            get relleno() {
+                if (!this.borrosa) {
+                    const k = 160 / Math.max(this.img.width, this.img.height);
+                    const w = Math.max(1, Math.round(this.img.width * k));
+                    const h = Math.max(1, Math.round(this.img.height * k));
+                    const lienzo = (ancho, alto) => {
+                        const c = document.createElement('canvas');
+                        c.width = ancho;
+                        c.height = alto;
+                        return [c, c.getContext('2d')];
+                    };
+
+                    const [mosaico, m] = lienzo(3 * w, 3 * h);
+                    for (let i = 0; i < 3; i++) {
+                        for (let j = 0; j < 3; j++) {
+                            const vx = i !== 1;
+                            const vy = j !== 1;
+                            m.setTransform(vx ? -1 : 1, 0, 0, vy ? -1 : 1, (vx ? i + 1 : i) * w, (vy ? j + 1 : j) * h);
+                            m.drawImage(this.img, 0, 0, w, h);
+                        }
+                    }
+                    const [espejo, e] = lienzo(3 * w, 3 * h);
+                    e.filter = 'blur(6px)';
+                    e.drawImage(mosaico, 0, 0);
+
+                    const franja = 0.04 * Math.max(w, h);
+                    const hasta = [[0, 0, 0, franja], [w, 0, w - franja, 0], [0, h, 0, h - franja], [0, 0, franja, 0]];
+                    const bordes = hasta.map(([x0, y0, x1, y1]) => {
+                        const [c, b] = lienzo(w, h);
+                        b.drawImage(espejo, w, h, w, h, 0, 0, w, h);
+                        const degradado = b.createLinearGradient(x0, y0, x1, y1);
+                        degradado.addColorStop(0, 'rgba(0, 0, 0, 1)');
+                        degradado.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                        b.globalCompositeOperation = 'destination-in';
+                        b.fillStyle = degradado;
+                        b.fillRect(0, 0, w, h);
+                        return c;
+                    });
+
+                    this.borrosa = { espejo, bordes };
+                }
+                return this.borrosa;
             }
 
             // Tamaño de la foto ya girada, en píxeles de la hoja.
@@ -365,11 +420,26 @@
                 }
                 ctx.fillStyle = this.fondo;
                 ctx.fillRect(-medio, -medio, 2 * medio, 2 * medio);
+                ctx.imageSmoothingQuality = 'high';
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rot * Math.PI / 180);
                 ctx.scale(this.escala, this.escala);
-                ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(this.img, -this.img.width / 2, -this.img.height / 2);
+                const w = this.img.width;
+                const h = this.img.height;
+                if (this.desenfocado) ctx.drawImage(this.relleno.espejo, -1.5 * w, -1.5 * h, 3 * w, 3 * h);
+                ctx.drawImage(this.img, -w / 2, -h / 2);
+                if (this.desenfocado) {
+                    // Solo se difuminan los lados de la foto que dejan hueco dentro del corte.
+                    const hueco = [
+                        this.y - this.alto / 2 > -R_CORTE,
+                        this.x + this.ancho / 2 < R_CORTE,
+                        this.y + this.alto / 2 < R_CORTE,
+                        this.x - this.ancho / 2 > -R_CORTE,
+                    ];
+                    this.relleno.bordes.forEach((borde, lado) => {
+                        if (hueco[(lado + this.rot / 90) % 4]) ctx.drawImage(borde, -w / 2, -h / 2, w, h);
+                    });
+                }
                 ctx.restore();
             }
         }
@@ -425,6 +495,7 @@
                     m.copias = Math.max(1, Math.min(60, parseInt(e.target.value, 10) || 1));
                 }));
                 el('fondo').addEventListener('input', (e) => this.conIman((m) => { m.fondo = e.target.value; }));
+                el('desenfocado').addEventListener('change', (e) => this.conIman((m) => { m.desenfocado = e.target.checked; }));
                 el('quitar').addEventListener('click', () => this.quitar());
                 el('png').addEventListener('click', () => this.guardarPng());
                 el('pdf').addEventListener('click', () => this.guardarPdf());
@@ -478,6 +549,7 @@
                 if (this.iman) {
                     el('copias').value = this.iman.copias;
                     el('fondo').value = this.iman.fondo;
+                    el('desenfocado').checked = this.iman.desenfocado;
                 }
                 this.cambio();
             }
@@ -574,8 +646,10 @@
                 }
 
                 const avisos = [];
-                if (!m.cubre(R_VISIBLE)) avisos.push('La foto no llena lo que se ve: asomará el color de fondo.');
-                else if (!m.cubre(R_CORTE)) avisos.push('La foto no llega al borde de corte: el canto saldrá con el color de fondo.');
+                if (!m.desenfocado) {
+                    if (!m.cubre(R_VISIBLE)) avisos.push('La foto no llena lo que se ve: asomará el color de fondo.');
+                    else if (!m.cubre(R_CORTE)) avisos.push('La foto no llega al borde de corte: el canto saldrá con el color de fondo.');
+                }
                 if (m.escala > 1.5) avisos.push(`Foto muy ampliada (unos ${Math.round(PPP / m.escala)} ppp): puede salir borrosa.`);
                 el('aviso').textContent = avisos.join(' ');
             }
