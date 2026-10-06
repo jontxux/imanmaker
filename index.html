@@ -628,17 +628,19 @@
             }
 
             // Las líneas de corte y de lo visible, según las casillas de la hoja.
+            // La de corte va entera por dentro: se corta por su borde de fuera.
             guias(ctx, cx, cy) {
-                if (el('lineaCorte').checked) this.circulo(ctx, cx, cy, R_CORTE, '#888', []);
-                if (el('lineaVisible').checked) this.circulo(ctx, cx, cy, R_VISIBLE, '#888', [12, 12]);
+                const grosor = 8;
+                if (el('lineaCorte').checked) this.circulo(ctx, cx, cy, R_CORTE - grosor / 2, '#444', [], grosor);
+                if (el('lineaVisible').checked) this.circulo(ctx, cx, cy, R_VISIBLE, '#888', [12, 12], 2);
             }
 
-            circulo(ctx, cx, cy, radio, color, trazo) {
+            circulo(ctx, cx, cy, radio, color, trazo, grosor) {
                 ctx.beginPath();
                 ctx.arc(cx, cy, radio, 0, 2 * Math.PI);
                 ctx.setLineDash(trazo);
                 ctx.strokeStyle = color;
-                ctx.lineWidth = 2;
+                ctx.lineWidth = grosor;
                 ctx.stroke();
                 ctx.setLineDash([]);
             }
