@@ -255,7 +255,7 @@
                 <canvas id="lienzo" width="900" height="900"></canvas>
                 <div class="leyenda">
                     Arrastra para mover · rueda o pellizco para el tamaño ·
-                    lo claro es lo que se ve (61 mm), lo oscuro se dobla por detrás (hasta el corte)
+                    lo claro es lo que se ve (57 mm), lo oscuro se dobla por detrás (hasta el corte)
                 </div>
                 <div id="aviso"></div>
                 <div class="controles">
@@ -280,32 +280,45 @@
                 <h2>Hoja para imprimir (A4)</h2>
                 <div class="opciones">
                     <label>Diámetro de corte
-                        <select id="diametro">
+                        <select id="diametro" autocomplete="off">
                             <option value="67">67 mm</option>
-                            <option value="70">70 mm</option>
-                            <option value="72" selected>72 mm</option>
+                            <option value="68">68 mm</option>
+                            <option value="68.5">68,5 mm</option>
+                            <option value="69">69 mm</option>
+                            <option value="70" selected>70 mm</option>
                         </select>
                     </label>
                     <label><input type="checkbox" id="lineaCorte" checked> Línea de corte</label>
-                    <label><input type="checkbox" id="lineaVisible"> Marcar lo que se ve (61 mm)</label>
-                    <label><input type="checkbox" id="regla" checked> Regla de 50 mm para comprobar el tamaño</label>
+                    <label><input type="checkbox" id="lineaVisible"> Marcar lo que se ve (57 mm)</label>
+                    <label><input type="checkbox" id="regla" checked> Regla de 100 mm para comprobar el tamaño</label>
+                    <label title="Si la impresora encoge o agranda la hoja, pon aquí lo que mide la regla impresa y la hoja se compensa">
+                        En mi impresora la regla mide
+                        <input type="number" id="medida" autocomplete="off" min="92" max="110" step="0.5" value="95"> mm
+                    </label>
                 </div>
                 <div id="hojas"></div>
                 <button id="pdf" class="verde">💾 Descargar PDF</button>
+                <button id="prueba" title="Solo las líneas de corte y la regla, sin fotos: casi no gasta tinta">Hoja de prueba</button>
                 <div class="leyenda" style="text-align:left; margin-top:10px">
-                    Al imprimir, elige «tamaño real» o «100 %», sin ajustar a la página.
+                    Al imprimir, elige «tamaño real» o «100 %», sin ajustar a la página. Si no hay
+                    esa opción (desde el móvil), mide la regla impresa y pon arriba lo que mide.
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        // Todo va en píxeles a 300 ppp: se ven 61 mm y se corta a 67, 70 o 72 mm.
+        // Todo va en píxeles a 300 ppp y en medidas reales, las del papel ya impreso:
+        // se ven 57 mm y se corta a 70 mm, como en la plantilla de Chapea para chapas
+        // de 59 mm (el corte se puede cambiar en la página).
         const PPP = 300;
         const mm = (v) => v / 25.4 * PPP;
-        const R_VISIBLE = mm(61) / 2;
+        const R_VISIBLE = mm(57) / 2;
         // El diámetro de corte se elige en la página (según la máquina o el troquel).
-        let R_CORTE = mm(72) / 2;
+        let R_CORTE = mm(70) / 2;
+        // Lo que hay que agrandar la hoja para que la impresora la deje a tamaño real:
+        // 100 entre lo que mide de verdad la regla de 100 mm impresa.
+        let AJUSTE = 1;
 
         // La hoja: un A4 con seis imanes (2 × 3), centrados.
         const HOJA = { ancho: 2480, alto: 3508, margenX: 340, margenY: 379, paso: 950, caja: 850, porHoja: 6 };
@@ -499,6 +512,7 @@
                 el('quitar').addEventListener('click', () => this.quitar());
                 el('png').addEventListener('click', () => this.guardarPng());
                 el('pdf').addEventListener('click', () => this.guardarPdf());
+                el('prueba').addEventListener('click', () => this.guardarPrueba());
                 const diametro = el('diametro');
                 try {
                     const guardado = localStorage.getItem('diametro');
@@ -509,6 +523,21 @@
                     R_CORTE = mm(Number(diametro.value)) / 2;
                     try { localStorage.setItem('diametro', diametro.value); } catch { /* da igual */ }
                     this.cambio();
+                });
+                const medida = el('medida');
+                const ajustar = () => {
+                    const v = Number(medida.value);
+                    AJUSTE = v >= Number(medida.min) && v <= Number(medida.max) ? 100 / v : 1;
+                };
+                try {
+                    const guardada = localStorage.getItem('medida');
+                    if (guardada) medida.value = guardada;
+                } catch { /* sin almacenamiento, se queda en 95 */ }
+                ajustar();
+                medida.addEventListener('input', () => {
+                    ajustar();
+                    try { localStorage.setItem('medida', medida.value); } catch { /* da igual */ }
+                    this.pintarHojas();
                 });
                 for (const id of ['lineaCorte', 'lineaVisible', 'regla']) {
                     el(id).addEventListener('change', () => this.pintarHojas());
@@ -696,6 +725,7 @@
                 ctx.fillStyle = 'white';
                 ctx.fillRect(0, 0, lienzo.width, lienzo.height);
                 ctx.scale(k, k);
+                this.compensar(ctx);
 
                 imanes.forEach((m, i) => {
                     const cx = HOJA.margenX + (i % 2) * HOJA.paso + HOJA.caja / 2;
@@ -704,20 +734,57 @@
                     this.guias(ctx, cx, cy);
                 });
 
-                if (el('regla').checked) {
-                    const largo = mm(50);
-                    const x = HOJA.margenX;
-                    const y = HOJA.alto - 190;
-                    ctx.strokeStyle = ctx.fillStyle = '#555';
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    ctx.moveTo(x, y); ctx.lineTo(x + largo, y);
-                    ctx.moveTo(x, y - 25); ctx.lineTo(x, y + 25);
-                    ctx.moveTo(x + largo, y - 25); ctx.lineTo(x + largo, y + 25);
-                    ctx.stroke();
-                    ctx.font = '36px sans-serif';
-                    ctx.fillText('50 mm · si mide otra cosa, la impresora ha cambiado el tamaño', x + largo + 30, y + 12);
-                }
+                if (el('regla').checked) this.regla(ctx);
+                return lienzo;
+            }
+
+            // La compensación de la impresora, desde el centro de la hoja.
+            compensar(ctx) {
+                ctx.translate(HOJA.ancho / 2, HOJA.alto / 2);
+                ctx.scale(AJUSTE, AJUSTE);
+                ctx.translate(-HOJA.ancho / 2, -HOJA.alto / 2);
+            }
+
+            regla(ctx) {
+                const largo = mm(100);
+                const x = HOJA.margenX;
+                const y = HOJA.alto - 190;
+                ctx.strokeStyle = ctx.fillStyle = '#555';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x, y); ctx.lineTo(x + largo, y);
+                ctx.moveTo(x, y - 25); ctx.lineTo(x, y + 25);
+                ctx.moveTo(x + largo, y - 25); ctx.lineTo(x + largo, y + 25);
+                ctx.stroke();
+                ctx.font = '36px sans-serif';
+                ctx.fillText('100 mm · si mide otra cosa, ponlo en imanmaker', x + largo + 30, y + 12);
+            }
+
+            // Para probar una impresora o un tamaño sin gastar tinta: solo líneas finas.
+            // Un círculo por cada diámetro de corte, con lo que se ve a trazos, y la regla.
+            hojaPrueba() {
+                const lienzo = document.createElement('canvas');
+                lienzo.width = HOJA.ancho;
+                lienzo.height = HOJA.alto;
+                const ctx = lienzo.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+                this.compensar(ctx);
+
+                const grosor = 3;
+                const diametros = [...el('diametro').options].map((o) => Number(o.value)).reverse();
+                diametros.slice(0, HOJA.porHoja).forEach((d, i) => {
+                    const cx = HOJA.margenX + (i % 2) * HOJA.paso + HOJA.caja / 2;
+                    const cy = HOJA.margenY + Math.floor(i / 2) * HOJA.paso + HOJA.caja / 2;
+                    this.circulo(ctx, cx, cy, mm(d) / 2 - grosor / 2, '#444', [], grosor);
+                    this.circulo(ctx, cx, cy, R_VISIBLE, '#888', [12, 12], 2);
+                    ctx.fillStyle = '#555';
+                    ctx.textAlign = 'center';
+                    ctx.font = '60px sans-serif';
+                    ctx.fillText(`${String(d).replace('.', ',')} mm`, cx, cy + 20);
+                    ctx.textAlign = 'start';
+                });
+                this.regla(ctx);
                 return lienzo;
             }
 
@@ -769,6 +836,14 @@
                 this.guias(ctx, c, c);
                 const base = m.nombre.replace(/\.[^.]+$/, '') || 'iman';
                 lienzo.toBlob((blob) => this.descargar(blob, `${base}_iman.png`), 'image/png');
+            }
+
+            // La hoja de prueba, en PDF.
+            async guardarPrueba() {
+                const blob = await new Promise((ok) => this.hojaPrueba().toBlob(ok, 'image/jpeg', 0.95));
+                const foto = new Uint8Array(await blob.arrayBuffer());
+                this.descargar(pdfDeFotos([foto], HOJA.ancho, HOJA.alto), 'imanes_prueba.pdf');
+                this.estado('Hoja de prueba descargada.');
             }
 
             async guardarPdf() {
