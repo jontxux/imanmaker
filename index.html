@@ -220,6 +220,17 @@
             margin-bottom: 14px;
         }
 
+        .ajuste {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
         #hojas {
             display: flex;
             flex-wrap: wrap;
@@ -281,9 +292,6 @@
                 <div class="opciones">
                     <label>Diámetro de corte
                         <select id="diametro" autocomplete="off">
-                            <option value="67">67 mm</option>
-                            <option value="68">68 mm</option>
-                            <option value="68.5">68,5 mm</option>
                             <option value="69">69 mm</option>
                             <option value="70" selected>70 mm</option>
                         </select>
@@ -291,17 +299,23 @@
                     <label><input type="checkbox" id="lineaCorte" checked> Línea de corte</label>
                     <label><input type="checkbox" id="lineaVisible"> Marcar lo que se ve (57 mm)</label>
                     <label><input type="checkbox" id="regla" checked> Regla de 100 mm para comprobar el tamaño</label>
-                    <label title="Si la impresora encoge o agranda la hoja, pon aquí lo que mide la regla impresa y la hoja se compensa">
-                        En mi impresora la regla mide
-                        <input type="number" id="medida" autocomplete="off" min="92" max="110" step="0.5" value="95"> mm
+                    <label title="Si la regla de la última hoja impresa no mide 100 mm, pon aquí lo que mide y pulsa Ajustar">
+                        La regla de la última hoja mide
+                        <input type="number" id="medida" autocomplete="off" min="90" max="110" step="0.5" value="100"> mm
                     </label>
+                    <div class="ajuste">
+                        <button id="ajustar">Ajustar</button>
+                        <span id="compensacion"></span>
+                        <button id="deSerie" title="Volver a la compensación de serie">De serie</button>
+                    </div>
                 </div>
                 <div id="hojas"></div>
                 <button id="pdf" class="verde">💾 Descargar PDF</button>
                 <button id="prueba" title="Solo las líneas de corte y la regla, sin fotos: casi no gasta tinta">Hoja de prueba</button>
                 <div class="leyenda" style="text-align:left; margin-top:10px">
-                    Al imprimir, elige «tamaño real» o «100 %», sin ajustar a la página. Si no hay
-                    esa opción (desde el móvil), mide la regla impresa y pon arriba lo que mide.
+                    La hoja sale ya agrandada para compensar lo que encoge el móvil al imprimir. Si la
+                    regla impresa no mide 100 mm, pon arriba lo que mide y pulsa «Ajustar»: la siguiente
+                    hoja sale corregida.
                 </div>
             </div>
         </div>
@@ -316,9 +330,11 @@
         const R_VISIBLE = mm(57) / 2;
         // El diámetro de corte se elige en la página (según la máquina o el troquel).
         let R_CORTE = mm(70) / 2;
-        // Lo que hay que agrandar la hoja para que la impresora la deje a tamaño real:
-        // 100 entre lo que mide de verdad la regla de 100 mm impresa.
-        let AJUSTE = 1;
+        // Lo que mide la regla de 100 mm impresa sin compensar: desde el móvil, 95.
+        const COMPENSACION_DE_SERIE = 95;
+        let COMPENSACION = COMPENSACION_DE_SERIE;
+        // Lo que hay que agrandar la hoja para que la impresora la deje a tamaño real.
+        let AJUSTE = 100 / COMPENSACION;
 
         // La hoja: un A4 con seis imanes (2 × 3), centrados.
         const HOJA = { ancho: 2480, alto: 3508, margenX: 340, margenY: 379, paso: 950, caja: 850, porHoja: 6 };
@@ -525,19 +541,32 @@
                     this.cambio();
                 });
                 const medida = el('medida');
-                const ajustar = () => {
-                    const v = Number(medida.value);
-                    AJUSTE = v >= Number(medida.min) && v <= Number(medida.max) ? 100 / v : 1;
+                const compensar = (c) => {
+                    COMPENSACION = c >= 85 && c <= 115 ? c : COMPENSACION_DE_SERIE;
+                    AJUSTE = 100 / COMPENSACION;
+                    const deSerie = COMPENSACION === COMPENSACION_DE_SERIE;
+                    const cifra = String(Math.round(COMPENSACION * 100) / 100).replace('.', ',');
+                    el('compensacion').textContent = `Compensación: ${cifra}${deSerie ? ' (de serie)' : ''}`;
+                    el('deSerie').hidden = deSerie;
+                };
+                const guardar = () => {
+                    try { localStorage.setItem('compensacion', COMPENSACION); } catch { /* da igual */ }
+                    this.pintarHojas();
                 };
                 try {
-                    const guardada = localStorage.getItem('medida');
-                    if (guardada) medida.value = guardada;
-                } catch { /* sin almacenamiento, se queda en 95 */ }
-                ajustar();
-                medida.addEventListener('input', () => {
-                    ajustar();
-                    try { localStorage.setItem('medida', medida.value); } catch { /* da igual */ }
-                    this.pintarHojas();
+                    compensar(Number(localStorage.getItem('compensacion')));
+                } catch { compensar(COMPENSACION_DE_SERIE); }
+                // La regla ya sale compensada: lo medido corrige la compensación que había.
+                el('ajustar').addEventListener('click', () => {
+                    const v = Number(medida.value);
+                    if (!(v >= Number(medida.min) && v <= Number(medida.max))) return;
+                    compensar(COMPENSACION * v / 100);
+                    medida.value = 100;
+                    guardar();
+                });
+                el('deSerie').addEventListener('click', () => {
+                    compensar(COMPENSACION_DE_SERIE);
+                    guardar();
                 });
                 for (const id of ['lineaCorte', 'lineaVisible', 'regla']) {
                     el(id).addEventListener('change', () => this.pintarHojas());
