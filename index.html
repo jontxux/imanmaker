@@ -330,8 +330,9 @@
         const R_VISIBLE = mm(57) / 2;
         // El diámetro de corte se elige en la página (según la máquina o el troquel).
         let R_CORTE = mm(70) / 2;
-        // Lo que mide la regla de 100 mm impresa sin compensar: desde el móvil, 95.
-        const COMPENSACION_DE_SERIE = 95;
+        // Lo que mide la regla de 100 mm impresa sin compensar: desde el móvil, 94,05
+        // (con 95 salía de 99 mm, el 29/10/2026).
+        const COMPENSACION_DE_SERIE = 94.05;
         let COMPENSACION = COMPENSACION_DE_SERIE;
         // Lo que hay que agrandar la hoja para que la impresora la deje a tamaño real.
         let AJUSTE = 100 / COMPENSACION;
